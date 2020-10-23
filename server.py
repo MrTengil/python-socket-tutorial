@@ -1,23 +1,41 @@
 import socket
-import pickle
+import threading
 
+HEADER = 64
+PORT = 5151
+#SERVER = socket.gethostbyname(socket.gethostname())
+SERVER = "213.89.156.227"
+ADDR = (SERVER, PORT)
+FORMAT = 'utf-8'
+DISCONNECT_MESSAGE = "!DISCONNECTED"
 
+server = socket.socket(socket.AF_INET)
+server.bind(ADDR)
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((socket.gethostname(), 1234))
-s.listen(5)
-HEADERSIZE = 10
+def handle_client(conn, addr):  # Will run for each client
+    print(f"[NEW CONNECTION] {addr} connected.")
 
-while True:
-    clientsocket, address = s.accept()
-    print(f"Connection from {address} has been established!")
+    connected = True
+    while connected:
+        msg_length = conn.recv(HEADER).decode(FORMAT)
+        if msg_length:
+            msg_length = int(msg_length)
+            msg = conn.recv(msg_length).decode(FORMAT)
+            if msg == DISCONNECT_MESSAGE:
+                connected = False
 
-    d = {
-        1: "Hey",
-        2: "There"
-    }
-    msg = pickle.dumps(d)
+            print(f"[{addr}] {msg}")
+            conn.send("Msg recieved".encode(FORMAT))
+    conn.close()
 
-    msg = bytes(f'{len(msg):<{HEADERSIZE}}', "utf-8") + msg
+def start():
+    server.listen()
+    print(f"[LISTENING] Server is lsitening on {SERVER}")
+    while True:
+        conn, addr = server.accept()
+        thread = threading.Thread(target=handle_client, args=(conn, addr))
+        thread.start()
+        print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
 
-    clientsocket.send(msg)
+print("[Starting] server is starting...")
+start()
